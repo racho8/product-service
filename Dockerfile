@@ -1,5 +1,19 @@
-FROM golang:1.22-alpine
+# Dockerfile
+FROM golang:1.24.5 AS builder
+
 WORKDIR /app
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+
 COPY . .
+
 RUN go build -o main .
-CMD ["./main"]
+
+# Final image
+FROM gcr.io/distroless/base-debian11
+
+WORKDIR /app
+COPY --from=builder /app/main .
+
+CMD ["/app/main"]
