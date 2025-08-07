@@ -1,6 +1,6 @@
 module github.com/racho8/product-service
 
-go 1.24.5
+go 1.21
 
 require (
 	cloud.google.com/go/datastore v1.20.0

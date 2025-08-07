@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
+	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
 
-	"github.com/racho8/product-service/datastore"
 	"github.com/racho8/product-service/handlers"
 )
 
@@ -21,24 +21,24 @@ func main() {
 		port = "8080"
 	}
 
-	log.Println("Starting server on port:", port)
-
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
 		slog.Error("GOOGLE_CLOUD_PROJECT env var not set")
 		os.Exit(1)
 	}
 
-	dsClient, err := datastoreclient.NewClient(ctx, projectID)
+	dsClient, err := datastore.NewClient(ctx, projectID)
 	if err != nil {
 		slog.Error("Failed to create Datastore client", slog.Any("error", err))
 		os.Exit(1)
 	}
+	defer dsClient.Close()
 
 	handlers.Init(dsClient)
 
 	r := mux.NewRouter()
 
+	// Routes setup remains the same
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Welcome to Product Service"))
@@ -55,8 +55,17 @@ func main() {
 	r.HandleFunc("/products/{id}", handlers.DeleteProduct).Methods("DELETE")
 	r.HandleFunc("/products", handlers.ListProducts).Methods("GET")
 
-	slog.Info("Server started on :8080")
-	http.ListenAndServe(":8080", r)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	address := "0.0.0.0:" + port
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         address,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+	}
 
+	slog.Info("Server starting", "address", address)
+	if err := srv.ListenAndServe(); err != nil {
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
+	}
 }
