@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +15,13 @@ import (
 
 func main() {
 	ctx := context.Background()
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("Starting server on port:", port)
 
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
@@ -49,4 +57,6 @@ func main() {
 
 	slog.Info("Server started on :8080")
 	http.ListenAndServe(":8080", r)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+
 }
