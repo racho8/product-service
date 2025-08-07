@@ -9,7 +9,6 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
-
 	"github.com/racho8/product-service/handlers"
 )
 
@@ -37,23 +36,7 @@ func main() {
 	handlers.Init(dsClient)
 
 	r := mux.NewRouter()
-
-	// Routes setup remains the same
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Welcome to Product Service"))
-	}).Methods("GET")
-
-	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	}).Methods("GET")
-
-	r.HandleFunc("/products", handlers.CreateProduct).Methods("POST")
-	r.HandleFunc("/products/{id}", handlers.GetProduct).Methods("GET")
-	r.HandleFunc("/products/{id}", handlers.UpdateProduct).Methods("PUT")
-	r.HandleFunc("/products/{id}", handlers.DeleteProduct).Methods("DELETE")
-	r.HandleFunc("/products", handlers.ListProducts).Methods("GET")
+	SetupRoutes(r)
 
 	address := "0.0.0.0:" + port
 	srv := &http.Server{
