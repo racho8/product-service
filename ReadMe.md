@@ -1,115 +1,173 @@
 # Product Service – Cloud Run Deployment
 
-This service provides CRUD APIs for managing product data using **Go**, **Google Cloud Datastore**, and is deployed on **Cloud Run** with automated CI/CD via **GitHub Actions**.
+This service provides CRUD APIs for managing product data using Go, Google Cloud Datastore, and is deployed on Cloud Run with automated CI/CD via GitHub Actions.
 
----
+## Project Structure
 
-## 🚀 Project Structure
+- `main.go`: Entry point for the server
+- `handlers/`: API handlers for CRUD operations
+- `datastore/`: Datastore client wrapper
+- `Dockerfile`: Container build configuration
+- `cloudbuild.yaml`: Optional Cloud Build pipeline configuration
+- `deploy.yaml`: GitHub Actions workflow for Cloud Run deployment
 
-- `main.go` – Entry point for the server
-- `handlers/` – API handlers for CRUD operations
-- `datastore/` – Datastore client wrapper
-- `Dockerfile` – Container build config
-- `cloudbuild.yaml` *(optional)* – For Cloud Build pipeline
-- `deploy.yaml` – GitHub Actions workflow to deploy to Cloud Run
+## Deployment Prerequisites
 
----
+- Google Cloud Project with billing enabled
+- Enabled APIs: Cloud Run, Artifact Registry, IAM
+- GitHub repository (`product-service`) configured with GitHub Actions
+- GitHub Secrets configured:
+  - `GCP_SA_KEY`: Base64-encoded Google Service Account key
 
-## ✅ Deployment Prerequisites
+## Setup & Deploy Steps
 
-1. Google Cloud Project with billing enabled.
-2. Cloud Run, Artifact Registry, and IAM APIs enabled.
-3. `product-service` GitHub repo connected with GitHub Actions.
-4. Secret manager configured in GitHub with:
-    - `GCP_SA_KEY` – base64-encoded Google Service Account key
+### 1. Run Locally
 
----
+#### Set Environment Variables
+```bash
+export GOOGLE_CLOUD_PROJECT=<YOUR_GCP_PROJECT_ID>
+export PORT=8080
+```
 
-## 🛠️ Setup & Deploy Steps
+#### Set Up Google Cloud Authentication
+- **Option 1: Use Application Default Credentials**
+  ```bash
+  gcloud auth application-default login
+  ```
+- **Option 2: Use a Service Account Key**
+  ```bash
+  export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-file.json"
+  ```
 
-### 1. Prepare Your Go App
+#### Install Dependencies
+```bash
+go mod init product-service
+go mod tidy
+```
 
-- Accept `PORT` from environment:
+#### Run the Application
+```bash
+go run main.go
+```
 
-  ```go
-  port := os.Getenv("PORT")
-  if port == "" {
-      port = "8080"
-  }
-  log.Printf("Listening on port %s", port)
-  http.ListenAndServe(":"+port, router)
+#### Test Local Endpoints
+- **Health Check**
+  ```bash
+  curl http://localhost:8080/healthz
+  ```
+- **Create a Product**
+  ```bash
+  curl -X POST http://localhost:8080/products \
+    -H "Content-Type: application/json" \
+    -d '{"name": "Table", "category": "Office furniture", "segment": "Chair", "price": 149.99}'
+  ```
+- **List All Products**
+  ```bash
+  curl http://localhost:8080/products
+  ```
 
+### 2. Prepare Your Go App for Deployment
 
-## Useful commands
+Ensure the app listens on the environment-provided port:
 
+```go
+port := os.Getenv("PORT")
+if port == "" {
+    port = "8080"
+}
+log.Printf("Listening on port %s", port)
+http.ListenAndServe(":"+port, router)
+```
 
-Roles to SA (without using terraform and doing it from local machine)
+### 3. Service Account Configuration
 
-### Create service account
+<details>
+<summary>Grant Required Roles</summary>
+
+Run the following commands to create a service account and assign necessary roles:
+
+```bash
+# Create service account
 gcloud iam service-accounts create github-deployer --display-name "GitHub Cloud Run Deployer"
 
-### Grant required roles
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/run.admin"
+# Assign roles
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
 
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/artifactregistry.writer"
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
 
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/datastore.admin"
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/datastore.admin"
 
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/pubsub.publisher"
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/pubsub.publisher"
 
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/logging.admin"
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/logging.admin"
 
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/viewer"
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/viewer"
 
-gcloud projects add-iam-policy-binding ingka-find-racho8-dev \
---member="serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com" \
---role="roles/artifactregistry.admin"
+gcloud projects add-iam-policy-binding <YOUR_GCP_PROJECT_ID> \
+  --member="serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.admin"
 
-### Create JSON key and save locally
+# Create JSON key
 gcloud iam service-accounts keys create key.json \
---iam-account=github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com
+  --iam-account=github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com
+```
 
-### TO CHECK THE ROLES OF A SA
-gcloud projects get-iam-policy ingka-find-racho8-dev \
---flatten="bindings[].members" \
---format='table(bindings.role)' \
---filter="bindings.members:serviceAccount:github-deployer@ingka-find-racho8-dev.iam.gserviceaccount.com"
+</details>
 
+### 4. Useful Commands
 
-## To Make a dummy commit and trigger github deploy action
-git commit --allow-empty -m "trigger deploy" && git push
+<details>
+<summary>View Commands</summary>
 
+- **Check Service Account Roles**
+  ```bash
+  gcloud projects get-iam-policy <YOUR_GCP_PROJECT_ID> \
+    --flatten="bindings[].members" \
+    --format='table(bindings.role)' \
+    --filter="bindings.members:serviceAccount:github-deployer@<YOUR_GCP_PROJECT_ID>.iam.gserviceaccount.com"
+  ```
 
-# CURL COMMANDS TO THE END POINTS
+- **Trigger GitHub Deploy Action**
+  ```bash
+  git commit --allow-empty -m "trigger deploy" && git push
+  ```
 
-### TO ADD A PRODUCT
+</details>
+
+## API Endpoints
+
+### Add a Product
+```bash
 curl -X POST https://product-service-256110662801.europe-west3.run.app/products \
--H "Content-Type: application/json" \
--d '{"name": "Table", "category": "Office furniture", "segment": "Chair", "price": 149.99}'
+  -H "Content-Type: application/json" \
+  -d '{"name": "Table", "category": "Office furniture", "segment": "Chair", "price": 149.99}'
+```
 
-### TO GET ALL PRODUCTS
+### Get All Products
+```bash
 curl https://product-service-256110662801.europe-west3.run.app/products
+```
 
-
-# Common Issues (and how to avoid them)
+## Common Issues & Fixes
 
 | Issue | Fix |
 |-------|-----|
-| ❌ Container failed to start / port not listening | Ensure app listens on `os.Getenv("PORT")` |
-| ❌ Missing environment variables like `GOOGLE_CLOUD_PROJECT` | Use Cloud Run env var config or .env injection |
-| ❌ Incorrect GitHub secret format for service account | Make sure `GCP_SA_KEY` is base64-encoded JSON |
-| ❌ Timeout or cold start issues | Add a fast `/healthz` endpoint |
-| ❌ Docker push errors | Ensure `gcloud auth configure-docker` is run |
-| ❌ Not seeing logs/errors | Check Cloud Run logs [here](https://console.cloud.google.com/logs/viewer) |
+| Container fails to start or port not listening | Ensure app listens on `os.Getenv("PORT")` |
+| Missing environment variables (e.g., `GOOGLE_CLOUD_PROJECT`) | Configure Cloud Run environment variables or inject `.env` |
+| Incorrect GitHub secret format | Verify `GCP_SA_KEY` is base64-encoded JSON |
+| Timeout or cold start issues | Implement a `/healthz` endpoint for quick health checks |
+| Docker push errors | Run `gcloud auth configure-docker` |
+| Logs or errors not visible | View logs in [Cloud Run Logs](https://console.cloud.google.com/logs/viewer) |
+
