@@ -1,0 +1,67 @@
+```mermaid 
+graph TD
+    %% Define styles for colorful and technical look
+    classDef gcp fill:#AADEFB,stroke:#326CE5,stroke-width:2px,color:#000
+    classDef frontend fill:#34C759,stroke:#2E865F,stroke-width:2px,color:#fff
+    classDef database fill:#F4B400,stroke:#DBA111,stroke-width:2px,color:#fff
+    classDef middleware fill:#B0BEC5,stroke:#78909C,stroke-width:2px,color:#000
+    classDef auth fill:#FBBC05,stroke:#D69E00,stroke-width:2px,color:#fff
+    classDef client fill:#0F9D58,stroke:#0B6E3C,stroke-width:2px,color:#fff
+
+    %% Frontend Boundary
+    subgraph Frontend[Frontend Client Layer]
+        MCP_Client[MCP Client Custom Natural Language Interface]:::client
+        External_Client[External Client e.g. Copilot Chat Claude Desktop]:::client
+        Postman[Postman API Testing]:::frontend
+    end
+
+    %% GCP Boundary
+    subgraph GCP[Google Cloud Platform]
+        %% Authentication
+        Auth[Google Cloud IAM OAuth 2.0 Authentication]:::auth
+
+        %% Microservice
+        subgraph Microservice[Product Microservice]
+            API_Gateway[Cloud Endpoints REST API Gateway]:::gcp
+            Service[Product Service CRUD Operations]:::gcp
+        end
+
+        %% MCP Wrapper (Middleware)
+        subgraph MCP_Wrapper[MCP Wrapper Middleware]
+            MCP_Server[MCP Server Exposes Tools]:::middleware
+            Tool_Registry[Tool Registry Product CRUD Tools]:::middleware
+        end
+
+        %% Database
+        subgraph Database[Persistence Layer]
+            Datastore[Google Cloud Datastore NoSQL Database]:::database
+        end
+    end
+
+    %% Data Flows with Dynamic Visuals
+    MCP_Client -->|HTTPS Natural Language Commands| MCP_Server
+    External_Client -->|HTTPS Natural Language Commands| MCP_Server
+    MCP_Server -->|Internal API Calls| Tool_Registry
+    Tool_Registry -->|gRPC Tool Invocation| API_Gateway
+    API_Gateway -->|gRPC Service Calls| Service
+    Service -->|Datastore API Read/Write| Datastore
+    API_Gateway -->|OAuth 2.0 Token Request| Auth
+    Service -->|OAuth 2.0 Validation| Auth
+    Postman -->|HTTPS REST API Validation| API_Gateway
+
+    %% Additional Annotations for Dynamic Feel
+    note[Dynamic Flow: Microservice handles CRUD for product data. MCP Server translates natural language to tool calls. Authentication via Google Cloud IAM]:::frontend
+    note --> MCP_Server
+    note --> Service
+
+    %% Styling for Dynamic Arrows
+    linkStyle 0 stroke:#34C759,stroke-width:4px,stroke-dasharray: 5,5 % Dashed for client interaction
+    linkStyle 1 stroke:#34C759,stroke-width:4px,stroke-dasharray: 5,5 % Dashed for external client
+    linkStyle 2 stroke:#B0BEC5,stroke-width:3px % Solid for internal middleware
+    linkStyle 3 stroke:#4285F4,stroke-width:4px % Thick for gRPC calls
+    linkStyle 4 stroke:#4285F4,stroke-width:4px % Thick for gRPC service
+    linkStyle 5 stroke:#F4B400,stroke-width:3px,stroke-dasharray: 3,3 % Dashed for database
+    linkStyle 6 stroke:#FBBC05,stroke-width:2px % Thin for auth
+    linkStyle 7 stroke:#FBBC05,stroke-width:2px % Thin for auth validation
+    linkStyle 8 stroke:#34C759,stroke-width:3px,stroke-dasharray: 5,5 % Dashed for Postman
+```
