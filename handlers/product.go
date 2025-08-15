@@ -57,18 +57,39 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	id := mux.Vars(r)["id"]
 
+	// Fetch the existing product
 	key := datastore.NameKey("Product", id, nil)
-	var product models.Product
-	body, _ := io.ReadAll(r.Body)
-	json.Unmarshal(body, &product)
+	var existingProduct models.Product
+	if err := dsClient.Get(ctx, key, &existingProduct); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
 
-	product.ID = id
-	if _, err := dsClient.Put(ctx, key, &product); err != nil {
+	// Decode the payload and update only the provided fields
+	var updatedProduct models.Product
+	body, _ := io.ReadAll(r.Body)
+	json.Unmarshal(body, &updatedProduct)
+
+	if updatedProduct.Name != "" {
+		existingProduct.Name = updatedProduct.Name
+	}
+	if updatedProduct.Category != "" {
+		existingProduct.Category = updatedProduct.Category
+	}
+	if updatedProduct.Segment != "" {
+		existingProduct.Segment = updatedProduct.Segment
+	}
+	if updatedProduct.Price != 0 {
+		existingProduct.Price = updatedProduct.Price
+	}
+
+	// Save the updated product back to the datastore
+	if _, err := dsClient.Put(ctx, key, &existingProduct); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(product)
+	json.NewEncoder(w).Encode(existingProduct)
 }
 
 func DeleteProduct(w http.ResponseWriter, r *http.Request) {
