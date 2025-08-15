@@ -19,6 +19,7 @@ func SetupRoutes(r *mux.Router) {
 	}).Methods("GET")
 
 	r.HandleFunc("/products", handlers.CreateProduct).Methods("POST")
+	r.HandleFunc("/products/create-multiple", handlers.CreateMultipleProducts).Methods("POST")
 	r.HandleFunc("/products/{id}", handlers.GetProduct).Methods("GET")
 	r.HandleFunc("/products/{id}", handlers.UpdateProduct).Methods("PUT")
 	r.HandleFunc("/products/update", handlers.UpdateMultipleProducts).Methods("POST")

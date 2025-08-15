@@ -38,6 +38,33 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(product)
 }
 
+func CreateMultipleProducts(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	// Parse the request body to get the list of products
+	var request struct {
+		Products []models.Product `json:"products"`
+	}
+	body, _ := io.ReadAll(r.Body)
+	if err := json.Unmarshal(body, &request); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Iterate over the products and save them to the datastore
+	for i := range request.Products {
+		request.Products[i].ID = uuid.New().String()
+		key := datastore.NameKey("Product", request.Products[i].ID, nil)
+		if _, err := dsClient.Put(ctx, key, &request.Products[i]); err != nil {
+			http.Error(w, "Failed to create product: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(request.Products)
+}
+
 func GetProduct(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	id := mux.Vars(r)["id"]
